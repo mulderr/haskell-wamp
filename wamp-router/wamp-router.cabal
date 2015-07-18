@@ -10,7 +10,7 @@ license-file:        LICENSE
 author:              Maciej Kazulak
 maintainer:          kazulakm@gmail.com
 -- copyright:           
-category:            Web
+category:            Network
 build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10

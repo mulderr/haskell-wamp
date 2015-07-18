@@ -8,3 +8,4 @@ wamp/dist/
 wamp-common/dist/
 wamp-client/dist/
 wamp-router/dist/
+examples/**/dist/

@@ -149,7 +149,7 @@ toJsonMsg3 msgType a1 a2 a3 = Array $ array <&> msgType <&> a1 <&> a2 <&> a3
 
 -- | Helper for constructing 'Error' messages
 --
--- Sets empty 'Details', 'Arguments' and 'ArgumentsKw'. Wraps 'URI' in 'ErrorUri'.
+-- Sets empty 'Details', 'Arguments' and 'ArgumentsKw'.
 defaultError :: MessageType -> ReqId -> ErrorUri -> Message
 defaultError msgType reqId errorUri = 
   Error 

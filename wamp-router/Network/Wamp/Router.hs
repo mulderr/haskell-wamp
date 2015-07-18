@@ -104,6 +104,7 @@ lookupSession (SessionStore m) sessId = do
 -- | Delete a 'Session' by 'SessId'
 deleteSession :: SessionStore -> SessId -> IO ()
 deleteSession (SessionStore m) sessId = do
+  putStrLn $ "Delete: " ++ show sessId
   store <- takeMVar m
   putMVar m (HM.delete sessId store)
 
@@ -170,11 +171,13 @@ establishSession realmMap conn = do
 cleanupSession :: Router -> Session -> IO ()
 cleanupSession router session = do
   let sessId = sessionId session
-  deleteRegistrationBySessId (routerRegistrations router) sessId
-  deleteInvocationByCallerSessId (routerInvocations router) sessId
-  deleteInvocationByCalleeSessId (routerInvocations router) sessId
-  deleteSubscriptionBySessId (routerSubscriptions router) sessId
-  deleteSession (routerSessions router) sessId
+  mapM_ ($ sessId) 
+    [ deleteRegistrationBySessId (routerRegistrations router)
+    , deleteInvocationByCallerSessId (routerInvocations router)
+    , deleteInvocationByCalleeSessId (routerInvocations router)
+    , deleteSubscriptionBySessId (routerSubscriptions router)
+    , deleteSession (routerSessions router)
+    ]
   putStrLn $ "Done cleaning after: " ++ show sessId
 
   subCount <- countSubscription (routerSubscriptions router)
