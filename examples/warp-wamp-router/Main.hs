@@ -4,7 +4,6 @@
 -- see for wai-websockets example:
 -- https://github.com/yesodweb/wai/blob/master/wai-websockets/server.lhs
 
---import           Control.Concurrent             (forkIO, throwTo, myThreadId, ThreadId (..))
 import           Control.Concurrent.Async       (async, link)
 import           Control.Exception              (throwIO, catch, finally)
 import           Control.Monad                  (forever)
