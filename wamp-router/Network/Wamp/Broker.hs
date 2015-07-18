@@ -20,6 +20,7 @@ module Network.Wamp.Broker
   , insertSubscription
   , lookupSubscription
   , lookupSubscriptionByTopicUri
+  , lookupSubscriptionByTopicSubscriber
   , deleteSubscription
   , deleteSubscriptionBySessId
   , countSubscription
@@ -82,6 +83,12 @@ lookupSubscriptionByTopicUri :: SubscriptionStore -> TopicUri -> IO [Subscriptio
 lookupSubscriptionByTopicUri (SubscriptionStore m) topicUri = do
   store <- readMVar m
   return $ toList $ store @= topicUri
+
+-- | Lookup a  'Subscription' by 'Network.Wamp.Types.TopicUri' and @Subscriber@ 'SessId'
+lookupSubscriptionByTopicSubscriber :: SubscriptionStore -> TopicUri -> SessId -> IO (Maybe Subscription)
+lookupSubscriptionByTopicSubscriber (SubscriptionStore m) topicUri sessId = do
+  store <- readMVar m
+  return $ getOne $ store @= sessId @= topicUri
 
 -- | Delete a  'Subscription' by 'Network.Wamp.Types.SubId'
 deleteSubscription :: SubscriptionStore -> SubId -> IO ()

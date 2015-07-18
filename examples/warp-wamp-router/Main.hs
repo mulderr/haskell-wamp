@@ -68,7 +68,11 @@ messageLoop router session = do
 
 messageHandler :: Router -> Session -> Message -> IO ()
 messageHandler router session m = do
+  -- current connection and session identifier
   let conn = sessionConnection session
+  let sid  = sessionId session
+
+  -- TODO: verify syntax for all received URIs
   
   case m of
     Goodbye _ _ -> do
@@ -79,9 +83,19 @@ messageHandler router session m = do
     -- Broker - PubSub
     --
     Subscribe reqId _ topicUri -> do
-      subId <- routerGenRouterId router >>= return . SubId
-      insertSubscription (routerSubscriptions router) (Subscription subId (sessionId session) topicUri session)
-      sendMessage conn $ Subscribed reqId subId
+      -- In case of receiving a SUBSCRIBE message from the same Subscriber and to already subscribed topic,
+      -- Broker should answer with SUBSCRIBED message, containing the existing Subscription|id.
+      -- 
+      -- For discussion see: https://github.com/tavendo/WAMP/issues/142
+      mSub <- lookupSubscriptionByTopicSubscriber topicUri sid
+      case mSub of
+        Nothing -> do
+          -- TODO: use a single SubId per TopicUri so its possible to serialize the message once per Event
+          -- for all Subscribers
+          subId <- routerGenRouterId router >>= return . SubId
+          insertSubscription (routerSubscriptions router) (Subscription subId (sessionId session) topicUri session)
+          sendMessage conn $ Subscribed reqId subId
+        Just sub -> sendMessage conn $ Subscribed reqId (subscriptionId sub)
 
     Unsubscribe reqId subId -> do
       mSub <- lookupSubscription (routerSubscriptions router) subId

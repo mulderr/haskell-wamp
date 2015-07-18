@@ -150,6 +150,7 @@ establishSession realmMap conn = do
                 , sessionConnection = conn
                 }
 
+          -- TODO: send actual roles instead of fixed dict
           sendMessage conn $ Welcome sessId $ Details $ HM.fromList
             [ "roles" .= object 
               [ "broker" .= object []
@@ -171,6 +172,11 @@ establishSession realmMap conn = do
 cleanupSession :: Router -> Session -> IO ()
 cleanupSession router session = do
   let sessId = sessionId session
+
+  -- TODO: https://github.com/tavendo/WAMP/issues/106
+  -- if the client was processing an Invocation but did not Yield yet
+  -- we have to send an Error to the Caller
+
   mapM_ ($ sessId) 
     [ deleteRegistrationBySessId (routerRegistrations router)
     , deleteInvocationByCallerSessId (routerInvocations router)
