@@ -1,6 +1,6 @@
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- |
 -- Module      : Network.Wamp.Types
@@ -49,7 +49,6 @@ import           Data.Maybe            (fromJust)
 import           Data.String           (IsString (..))
 import           Data.Text             (Text)
 import           Data.Typeable
-import           GHC.Generics
 
 
 -- Protocol specification:
@@ -75,121 +74,65 @@ type Dict = HM.HashMap Text Value
 -- Types used in messages.
 --
 -- Ord and Typeable are required to create an index using ixset's ixFun.
--- Generic is required to automatically derive FromJSON and ToJSON.
 --
 
 -- | Session ID.
 newtype SessId = SessId ID
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON SessId
-instance ToJSON SessId
-instance Hashable SessId
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable)
 
 -- | Request ID.
 newtype ReqId = ReqId ID
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON ReqId
-instance ToJSON ReqId
-instance Hashable ReqId
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable)
 
 -- | Publication ID.
 newtype PubId = PubId ID
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON PubId
-instance ToJSON PubId
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable)
 
 -- | Subscription ID.
 newtype SubId = SubId ID
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON SubId
-instance ToJSON SubId
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable)
 
 -- | Registration ID.
 newtype RegId = RegId ID
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON RegId
-instance ToJSON RegId
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable)
 
 
 -- | Realm URI.
 newtype RealmUri = RealmUri URI
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON RealmUri
-instance ToJSON RealmUri
-instance Hashable RealmUri
-instance IsString RealmUri where
-  fromString = RealmUri . fromString
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable, IsString)
 
 -- | Reason URI.
 newtype ReasonUri = ReasonUri URI
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON ReasonUri
-instance ToJSON ReasonUri
-instance IsString ReasonUri where
-  fromString = ReasonUri . fromString
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable, IsString)
 
 -- | Error URI.
 newtype ErrorUri = ErrorUri URI
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON ErrorUri
-instance ToJSON ErrorUri
-instance IsString ErrorUri where
-  fromString = ErrorUri . fromString
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable, IsString)
 
 -- | Topic URI.
 newtype TopicUri = TopicUri URI
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON TopicUri
-instance ToJSON TopicUri
-instance IsString TopicUri where
-  fromString = TopicUri . fromString
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable, IsString)
 
 -- | Procedure URI.
 newtype ProcedureUri = ProcedureUri URI
-  deriving (Eq, Generic, Ord, Show, Typeable)
-
-instance FromJSON ProcedureUri
-instance ToJSON ProcedureUri
-instance IsString ProcedureUri where
-  fromString = ProcedureUri . fromString
+  deriving (Eq, Ord, Show, Typeable, FromJSON, ToJSON, Hashable, IsString)
 
 
 -- | Arguments list.
 newtype Arguments = Arguments Array
-  deriving (Eq, Generic, Show, Typeable)
-
-instance FromJSON Arguments
-instance ToJSON Arguments
+  deriving (Eq, Show, Typeable, FromJSON, ToJSON)
 
 -- | Arguments dictionary.
 newtype ArgumentsKw = ArgumentsKw Dict
-  deriving (Eq, Generic, Show, Typeable)
-
-instance FromJSON ArgumentsKw
-instance ToJSON ArgumentsKw
+  deriving (Eq, Show, Typeable, FromJSON, ToJSON)
 
 -- | Details dictionary.
 newtype Details = Details Dict
-  deriving (Eq, Generic, Show, Typeable)
-
-instance FromJSON Details
-instance ToJSON Details
+  deriving (Eq, Show, Typeable, FromJSON, ToJSON)
 
 -- | Options dictionary.
 newtype Options = Options Dict
-  deriving (Eq, Generic, Show, Typeable)
-
-instance FromJSON Options
-instance ToJSON Options
+  deriving (Eq, Show, Typeable, FromJSON, ToJSON)
 
 
 data Role
