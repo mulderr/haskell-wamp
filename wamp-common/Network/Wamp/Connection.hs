@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 -- |
 -- Module      : Network.Wamp.Connection
@@ -14,6 +15,7 @@
 module Network.Wamp.Connection
   ( Connection (..)
   , Session (..)
+  , WampException (..)
 
   , receiveMessage
   , sendMessage
@@ -31,6 +33,8 @@ import qualified Data.ByteString.Lazy  as BL
 import           Data.List             (intersect)
 import           Data.Maybe            (listToMaybe)
 import qualified Network.WebSockets    as WS
+import           Control.Exception     (Exception (..))
+import           Data.Typeable         (Typeable)
 
 import Network.Wamp.Types
 import Network.Wamp.Messages
@@ -122,3 +126,16 @@ chooseWsSubprotocol :: WS.PendingConnection -> Maybe B.ByteString
 chooseWsSubprotocol pc = do
   let clientProtocols = WS.getRequestSubprotocols $ WS.pendingRequest pc
   listToMaybe $ supportedSubprotocols `intersect` clientProtocols
+
+ 
+data WampException
+  -- | Peer broke protocol. We can no longer make any assumptions about
+  -- this session. There is not a single valid message we can reply with, 
+  -- so the session must be silently closed.
+  = ProtocolException String
+
+  -- | Received @Goodbye@, replied @Goodbye@, session is over, time for cleanup.
+  | SessionClosed
+  deriving (Show, Typeable)
+
+instance Exception WampException

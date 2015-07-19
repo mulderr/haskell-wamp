@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 
 -- |
 -- Module      : Network.Wamp.Router
@@ -15,7 +14,6 @@
 module Network.Wamp.Router
   ( Router (..)
   , RealmMap
-  , WampException (..)
 
   , defaultRouter
   , establishSession
@@ -30,10 +28,8 @@ module Network.Wamp.Router
 where
 
 import           Control.Concurrent.MVar
-import           Control.Exception     (Exception (..))
 import           Data.Aeson
 import qualified Data.HashMap.Strict   as HM
-import           Data.Typeable         (Typeable)
 import qualified System.Random         as R
 
 import Network.Wamp.Connection
@@ -67,20 +63,6 @@ type SessionMap       = HM.HashMap SessId Session
 
 -- | Client sessions
 newtype SessionStore  = SessionStore (MVar SessionMap)
-
-
-
-data WampException
-  -- | Peer broke protocol. We can no longer make any assumptions about
-  -- this session. There is not a single valid message we can reply with, 
-  -- so the session must be silently closed.
-  = ProtocolException String
-
-  -- | Received @Goodbye@, replied @Goodbye@, session is over, time for cleanup.
-  | SessionClosed
-  deriving (Show, Typeable)
-
-instance Exception WampException
 
 
 -- | Create a new 'SessionStore'

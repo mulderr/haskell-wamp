@@ -87,7 +87,7 @@ messageHandler router session m = do
       -- Broker should answer with SUBSCRIBED message, containing the existing Subscription|id.
       -- 
       -- For discussion see: https://github.com/tavendo/WAMP/issues/142
-      mSub <- lookupSubscriptionByTopicSubscriber topicUri sid
+      mSub <- lookupSubscriptionByTopicSubscriber (routerSubscriptions router) topicUri sid
       case mSub of
         Nothing -> do
           -- TODO: use a single SubId per TopicUri so its possible to serialize the message once per Event
@@ -121,6 +121,9 @@ messageHandler router session m = do
       case HM.lookup "acknowledge" opts of
         Just (Bool True) -> sendMessage conn $ Published reqId pubId
         _                -> return ()
+
+      -- TODO: Note that the Publisher of an event will never receive the published
+      -- event even if the Publisher is also a Subscriber of the topic published to.
       (async $ notifySubscribers router pubId m) >>= link
 
     --
@@ -167,5 +170,4 @@ messageHandler router session m = do
     --
     -- Anything else is... unexpected.
     --
-    _ -> do
-      throwIO $ ProtocolException $ "Unexpected message: " ++ show m
+    _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show m
