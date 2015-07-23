@@ -50,6 +50,7 @@ supportedSubprotocols =
 defaultPingDelay :: Int
 defaultPingDelay = 30
 
+
 -- | WAMP connection
 --
 -- Abstracts away the underlying transport.
@@ -60,7 +61,7 @@ data Connection = Connection
   }
 
 
--- | WAMP session
+-- | Router session
 data Session = Session
   { sessionId         :: !SessId
   , sessionConnection :: !Connection
@@ -74,6 +75,7 @@ instance Eq Session where
 
 instance Ord Session where
   compare x y = sessionId x `compare` sessionId y
+
 
 
 -- | Receive message
