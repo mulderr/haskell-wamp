@@ -29,11 +29,11 @@ library
   default-language:    Haskell2010
   ghc-options:         -Wall
   build-depends:
-    base                  >=4.7  && <4.8,
-    aeson                 >=0.7  && <0.8,
-    bytestring            >=0.10 && <0.11,
-    hashable              >=1.2  && <1.3,
-    text                  >=1.0  && <1.2,
-    unordered-containers  >=0.2  && <0.3,
-    vector                >=0.10 && <0.11,
-    websockets            >=0.9  && <1.0
+    base                  ,
+    aeson                 ,
+    bytestring            ,
+    hashable              ,
+    text                  ,
+    unordered-containers  ,
+    vector                ,
+    websockets

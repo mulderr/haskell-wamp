@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Prelude                        hiding (lookup)
+import           Control.Concurrent
 import           Control.Concurrent.MVar
 import           Control.Concurrent.Async       (async, link)
 --import           Control.Exception              (throwIO, catch, finally)
@@ -14,8 +15,9 @@ import           Network.Wamp.Client
 
 main :: IO ()
 main = do
-  runClientWebSocket "realm1" "192.168.122.115" 8080 "/ws" testApp
-  --runClientWebSocket "realm1" "127.0.0.1" 3000 "/" testApp
+  runClientWebSocket True "realm1" "api.poloniex.com" 443 "/" testApp
+  -- runClientWebSocket False "realm1" "192.168.122.115" 8080 "/ws" testApp
+  -- runClientWebSocket False "realm1" "127.0.0.1" 3000 "/" testApp
 
 
 newsH :: Handler
@@ -60,7 +62,11 @@ testApp session = do
 
   putStrLn $ "\x2713 Session established: " ++ show (sessionId session)
 
-  res <- subscribe session "news" (Options dict) newsH >>= readMVar
+  -- res <- subscribe session "news" (Options dict) newsH >>= readMVar
+  res <- subscribe session "ticker" (Options dict) newsH >>= readMVar
+
+  threadDelay 5000000
+
   case res of
     Left err -> putStrLn $ show err
     Right sub -> do

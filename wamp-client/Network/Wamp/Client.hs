@@ -30,6 +30,8 @@ import qualified Data.HashMap.Strict            as HM
 import qualified Network.WebSockets             as WS
 import qualified System.Random         as R
 
+import           Wuss
+
 import Network.Wamp.Types
 import Network.Wamp.Messages
 import Network.Wamp.Connection hiding (Session (..))
@@ -90,16 +92,19 @@ data Registration = Registration
 -}
 
 runClientWebSocket
-  :: RealmUri
+  :: Bool
+  -> RealmUri
   -> String
   -> Int
   -> String
   -> WampApp
   -> IO ()
-runClientWebSocket realmUri host port path app = do
+runClientWebSocket secure realmUri host port path app = do
   let headers = [("Sec-WebSocket-Protocol", "wamp.2.json")]
-
-  WS.runClientWith host port path WS.defaultConnectionOptions headers (\ws -> do
+      runWSClientWith = if secure
+        then runSecureClientWith host (fromIntegral port) path WS.defaultConnectionOptions headers
+        else WS.runClientWith host port path WS.defaultConnectionOptions headers
+  runWSClientWith (\ws -> do
     let conn = Connection
                 { connectionParse     = parseWsMessage ws
                 , connectionWrite     = writeWsMessage ws

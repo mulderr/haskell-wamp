@@ -9,3 +9,10 @@ wamp-common/dist/
 wamp-client/dist/
 wamp-router/dist/
 examples/**/dist/
+.stack-work/
+wamp/.stack-work/
+wamp-common/.stack-work/
+wamp-client/.stack-work/
+wamp-router/.stack-work/
+
+
