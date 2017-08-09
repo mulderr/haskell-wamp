@@ -1,0 +1,32 @@
+name:         warp-wamp-router
+version:      "0.1.0.0"
+author:       Maciej Kazulak
+maintainer:   kazulakm@gmail.com
+stability:    experimental
+license:      MIT 
+license-file: LICENSE
+category:     Network
+build-type:   Simple
+
+default-extensions:
+  - OverloadedStrings
+
+extra-source-files:
+  - README.md
+
+executables:
+  warp-wamp-router:
+    main: Main.hs
+    dependencies:
+      - aeson
+      - async
+      - base
+      - file-embed
+      - unordered-containers
+      - wai
+      - wai-app-static
+      - wai-websockets
+      - wamp
+      - warp
+      - websockets
+

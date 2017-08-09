@@ -9,7 +9,7 @@
 -- Maintainer  : kazulakm@gmail.com
 -- Stability   : experimental
 -- Portability : portable
--- 
+--
 -- WAMP Client.
 --
 module Network.Wamp.Client
@@ -24,19 +24,19 @@ module Network.Wamp.Client
 where
 
 import           Control.Concurrent.MVar
-import           Control.Exception              (throwIO)
-import           Data.Aeson                     hiding (Result)
-import qualified Data.HashMap.Strict            as HM
-import qualified Network.WebSockets             as WS
-import qualified System.Random         as R
+import           Control.Exception       (throwIO)
+import           Data.Aeson              hiding (Result)
+import qualified Data.HashMap.Strict     as HM
+import qualified Network.WebSockets      as WS
+import qualified System.Random           as R
 
 import           Wuss
 
-import Network.Wamp.Types
-import Network.Wamp.Messages
-import Network.Wamp.Connection hiding (Session (..))
+import           Network.Wamp.Connection hiding (Session (..))
+import           Network.Wamp.Messages
+import           Network.Wamp.Types
 
-import Network.Wamp.State
+import           Network.Wamp.State
 
 
 type WampApp      = Session -> IO ()
@@ -46,22 +46,22 @@ type WampApp      = Session -> IO ()
 
 
 -- | Current state of a client session
-data Session = Session 
-  { sessionId                   :: SessId
-  , sessionConnection           :: Connection
+data Session = Session
+  { sessionId                  :: SessId
+  , sessionConnection          :: Connection
 
-  , sessionSubscriptions        :: SubscriptionStore
+  , sessionSubscriptions       :: SubscriptionStore
   --, sessionRegistrations      :: RegistrationStore
   --, sessionInvocations        :: InvocationStore
 
-  , sessionPublishRequests      :: Store PublishRequest
-  , sessionSubscribeRequests    :: Store SubscribeRequest
-  , sessionUnsubscribeRequests  :: Store UnsubscribeRequest
-  , sessionCallRequests         :: Store CallRequest
-  , sessionRegisterRequests     :: Store RegisterRequest
-  , sessionUnregisterRequests   :: Store RegisterRequest
+  , sessionPublishRequests     :: Store PublishRequest
+  , sessionSubscribeRequests   :: Store SubscribeRequest
+  , sessionUnsubscribeRequests :: Store UnsubscribeRequest
+  , sessionCallRequests        :: Store CallRequest
+  , sessionRegisterRequests    :: Store RegisterRequest
+  , sessionUnregisterRequests  :: Store RegisterRequest
 
-  , sessionGenId                :: IO ID
+  , sessionGenId               :: IO ID
   }
 
 -- | Connection and SessionId are required. We can provide defaults for the rest.
@@ -77,7 +77,7 @@ mkSession sessionConnection sessionId = do
   sessionCallRequests         <- mkStore
   sessionRegisterRequests     <- mkStore
   sessionUnregisterRequests   <- mkStore
-  
+
   let sessionGenId = genGlobalId
 
   return $ Session {..}

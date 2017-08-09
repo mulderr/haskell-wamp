@@ -1,18 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 -- see for wai-websockets example:
 -- https://github.com/yesodweb/wai/blob/master/wai-websockets/server.lhs
 
 import           Control.Concurrent.Async       (async, link)
-import           Control.Exception              (throwIO, catch, finally)
+import           Control.Exception              (catch, finally, throwIO)
 import           Control.Monad                  (forever)
+import           Data.FileEmbed                 (embedDir)
 import qualified Network.Wai                    as Wai
+import qualified Network.Wai.Application.Static as Static
 import qualified Network.Wai.Handler.Warp       as Warp
 import qualified Network.Wai.Handler.WebSockets as WaiWS
-import qualified Network.Wai.Application.Static as Static
 import qualified Network.WebSockets             as WS
-import           Data.FileEmbed                 (embedDir)
 
 import           Data.Aeson                     (Value (Bool))
 import qualified Data.HashMap.Strict            as HM
