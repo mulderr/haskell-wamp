@@ -16,12 +16,10 @@ import           Network.Wamp.Client
 main :: IO ()
 main = do
   runClientWebSocket True "realm1" "api.poloniex.com" 443 "/" testApp
-  -- runClientWebSocket False "realm1" "192.168.122.115" 8080 "/ws" testApp
-  -- runClientWebSocket False "realm1" "127.0.0.1" 3000 "/" testApp
 
 
 newsH :: Handler
-newsH args _ _ = do
+newsH (Arguments args) _ _ = do
   putStrLn $ show args
 
 
@@ -47,34 +45,36 @@ messageHandler session msg = do
           deleteSubscription (sessionSubscriptions session) subId
           putMVar m (Right True)
 
-    _ -> putStrLn $ show msg
+    Event subId pubId details arguments argumentsKw -> do
+      mr <- lookupSubscription (sessionSubscriptions session) subId
+      case mr of
+        Nothing -> putStrLn $ "Unsolicited message: " ++ show msg
+        Just (Subscription subId topicUri handler opts) -> do
+          handler arguments argumentsKw details
+
+    _ -> error "Unexpected message"
 
 
 receiveLoop :: Session -> IO ()
 receiveLoop session = forever $ do
   msg <- receiveMessage (sessionConnection session)
-  (async $ messageHandler session msg) >>= link
+  messageHandler session msg
 
 
 testApp :: WampApp
 testApp session = do
   (async $ receiveLoop session) >>= link
-
   putStrLn $ "\x2713 Session established: " ++ show (sessionId session)
 
-  -- res <- subscribe session "news" (Options dict) newsH >>= readMVar
   res <- subscribe session "ticker" (Options dict) newsH >>= readMVar
-
-  threadDelay 5000000
-
   case res of
     Left err -> putStrLn $ show err
     Right sub -> do
       putStrLn $ "\x2713 Subscribed: " ++ show sub
+
+      threadDelay $ 5*1000*1000
+
       ures <- unsubscribe session sub >>= readMVar
       case ures of
         Left err -> putStrLn $ show err
         Right _ -> putStrLn $ "\x2713 Unsubscribed"
-
-  _ <- publish session "news" (Arguments array) (ArgumentsKw dict) (Options dict) >>= readMVar
-  putStrLn $ "\x2713 Published"
