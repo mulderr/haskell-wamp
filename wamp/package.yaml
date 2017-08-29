@@ -1,0 +1,28 @@
+name:         wamp
+version:      "0.1.0.0"
+synopsis:     WAMP v2 Basic Profile
+description:  Web Application Messaging Protocol v2 Basic Profile
+author:       Maciej Kazulak
+maintainer:   kazulakm@gmail.com
+stability:    experimental
+license:      MIT 
+license-file: LICENSE
+category:     Network
+build-type:   Simple
+
+default-extensions:
+  - OverloadedStrings
+
+extra-source-files:
+  - README.md
+
+library:
+  exposed-modules:
+    - Network.Wamp
+  dependencies:
+    - base
+    - wamp-common
+    - wamp-router
+
+
+

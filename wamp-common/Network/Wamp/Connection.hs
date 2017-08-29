@@ -1,5 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE OverloadedStrings  #-}
 
 -- |
 -- Module      : Network.Wamp.Connection
@@ -9,7 +9,7 @@
 -- Maintainer  : kazulakm@gmail.com
 -- Stability   : experimental
 -- Portability : portable
--- 
+--
 -- WAMP Connection.
 --
 module Network.Wamp.Connection
@@ -27,17 +27,17 @@ module Network.Wamp.Connection
   )
 where
 
+import           Control.Exception     (Exception (..))
 import           Data.Aeson
 import qualified Data.ByteString       as B
 import qualified Data.ByteString.Lazy  as BL
 import           Data.List             (intersect)
 import           Data.Maybe            (listToMaybe)
-import qualified Network.WebSockets    as WS
-import           Control.Exception     (Exception (..))
 import           Data.Typeable         (Typeable)
+import qualified Network.WebSockets    as WS
 
-import Network.Wamp.Types
-import Network.Wamp.Messages
+import           Network.Wamp.Messages
+import           Network.Wamp.Types
 
 
 -- supported websocket subprotocols in order of descending preference
@@ -55,9 +55,9 @@ defaultPingDelay = 30
 --
 -- Abstracts away the underlying transport.
 data Connection = Connection
-  { connectionParse     :: !(IO (Maybe Message))
-  , connectionWrite     :: !(Message -> IO ())
-  , connectionClose     :: !(IO ())
+  { connectionParse :: !(IO (Maybe Message))
+  , connectionWrite :: !(Message -> IO ())
+  , connectionClose :: !(IO ())
   }
 
 
@@ -97,9 +97,9 @@ acceptWsRequest :: WS.PendingConnection -> IO Connection
 acceptWsRequest pc = do
   let msp = chooseWsSubprotocol pc
 
-  ws <- WS.acceptRequestWith pc (WS.AcceptRequest msp)
+  ws <- WS.acceptRequestWith pc (WS.AcceptRequest msp [])
   WS.forkPingThread ws defaultPingDelay
-  
+
   return $ Connection
       { connectionParse     = parseWsMessage ws
       , connectionWrite     = writeWsMessage ws
@@ -129,10 +129,10 @@ chooseWsSubprotocol pc = do
   let clientProtocols = WS.getRequestSubprotocols $ WS.pendingRequest pc
   listToMaybe $ supportedSubprotocols `intersect` clientProtocols
 
- 
+
 data WampException
   -- | Peer broke protocol. We can no longer make any assumptions about
-  -- this session. There is not a single valid message we can reply with, 
+  -- this session. There is not a single valid message we can reply with,
   -- so the session must be silently closed.
   = ProtocolException String
 

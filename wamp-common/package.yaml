@@ -1,0 +1,34 @@
+name:         wamp-common
+version:      "0.1.0.0"
+description:  Web Application Messaging Protocol v2 Basic Profile
+              building blocks common to both Client and Router.
+author:       Maciej Kazulak
+maintainer:   kazulakm@gmail.com
+stability:    experimental
+license:      MIT 
+license-file: LICENSE
+category:     Network
+build-type:   Simple
+
+default-extensions:
+  - OverloadedStrings
+
+extra-source-files:
+  - README.md
+
+library:
+  exposed-modules:
+    - Network.Wamp.Connection
+    - Network.Wamp.Messages
+    - Network.Wamp.Types
+  dependencies:
+    - aeson
+    - base
+    - bytestring
+    - hashable
+    - text
+    - unordered-containers
+    - vector
+    - websockets
+
+

@@ -1,0 +1,30 @@
+name:         warp-client
+version:      "0.1.0.0"
+author:       Maciej Kazulak
+maintainer:   kazulakm@gmail.com
+stability:    experimental
+license:      MIT 
+license-file: LICENSE
+category:     Network
+build-type:   Simple
+
+default-extensions:
+  - OverloadedStrings
+
+extra-source-files:
+  - README.md
+
+
+library:
+  exposed-modules:
+    - Network.Wamp.Client
+    - Network.Wamp.State
+  dependencies:
+    - aeson
+    - base
+    - ixset
+    - random
+    - unordered-containers
+    - wamp-common
+    - websockets
+    - wuss

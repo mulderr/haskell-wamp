@@ -1,0 +1,31 @@
+name:         wamp-router
+version:      "0.1.0.0"
+author:       Maciej Kazulak
+maintainer:   kazulakm@gmail.com
+stability:    experimental
+license:      MIT 
+license-file: LICENSE
+category:     Network
+build-type:   Simple
+
+default-extensions:
+  - OverloadedStrings
+
+extra-source-files:
+  - README.md
+
+library:
+  exposed-modules:
+    - Network.Wamp.Router
+    - Network.Wamp.Broker
+    - Network.Wamp.Dealer
+  dependencies:
+    - aeson
+    - base
+    - bytestring
+    - ixset 
+    - random
+    - unordered-containers
+    - wamp-common
+    - websockets
+
