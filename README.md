@@ -14,3 +14,11 @@ For a sample WAMP *Router* using [wai-websockets](https://hackage.haskell.org/pa
 stack build
 stack runghc wamp-client/test.hs
 ```
+
+## Nix - Run Example
+
+```bash
+cd examples/warp-wamp-router
+nix-shell --attr warp-wamp-router.env ../../default
+cabal run
+```
