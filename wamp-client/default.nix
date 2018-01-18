@@ -2,7 +2,7 @@
 , unordered-containers, wamp-common, websockets, wuss
 }:
 mkDerivation {
-  pname = "warp-client";
+  pname = "wamp-client";
   version = "0.1.0.0";
   src = ./.;
   libraryHaskellDepends = [

@@ -1,8 +1,4 @@
--- This file has been generated from package.yaml by hpack version 0.15.0.
---
--- see: https://github.com/sol/hpack
-
-name:           warp-client
+name:           wamp-client
 version:        0.1.0.0
 category:       Network
 stability:      experimental
@@ -17,7 +13,11 @@ extra-source-files:
     README.md
 
 library
+  default-language: Haskell2010
   default-extensions: OverloadedStrings
+  exposed-modules:
+      Network.Wamp.Client
+      Network.Wamp.State
   build-depends:
       aeson
     , base
@@ -27,9 +27,3 @@ library
     , wamp-common
     , websockets
     , wuss
-  exposed-modules:
-      Network.Wamp.Client
-      Network.Wamp.State
-  other-modules:
-      Paths_warp_client
-  default-language: Haskell2010

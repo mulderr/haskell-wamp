@@ -1,7 +1,3 @@
--- This file has been generated from package.yaml by hpack version 0.15.0.
---
--- see: https://github.com/sol/hpack
-
 name:           wamp
 version:        0.1.0.0
 synopsis:       WAMP v2 Basic Profile
@@ -16,13 +12,11 @@ build-type:     Simple
 cabal-version:  >= 1.10
 
 library
+  default-language: Haskell2010
   default-extensions: OverloadedStrings
+  exposed-modules:
+      Network.Wamp
   build-depends:
       base
     , wamp-common
     , wamp-router
-  exposed-modules:
-      Network.Wamp
-  other-modules:
-      Paths_wamp
-  default-language: Haskell2010
