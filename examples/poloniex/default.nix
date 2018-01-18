@@ -1,5 +1,5 @@
 { mkDerivation, aeson, async, base, stdenv, unordered-containers
-, wamp-common, warp-client, websockets, wuss
+, wamp-client, wamp-common, websockets, wuss
 }:
 mkDerivation {
   pname = "poloniex";
@@ -8,7 +8,7 @@ mkDerivation {
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    aeson async base unordered-containers wamp-common warp-client
+    aeson async base unordered-containers wamp-client wamp-common
     websockets wuss
   ];
   license = stdenv.lib.licenses.mit;

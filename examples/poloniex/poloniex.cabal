@@ -22,6 +22,6 @@ executable poloniex
                     , async 
                     , unordered-containers
                     , wamp-common
-                    , warp-client
+                    , wamp-client
                     , websockets
                     , wuss
