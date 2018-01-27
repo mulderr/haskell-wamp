@@ -1,4 +1,4 @@
-name:         warp-client
+name:         wamp-client
 version:      "0.1.0.0"
 author:       Maciej Kazulak
 maintainer:   kazulakm@gmail.com
