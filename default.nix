@@ -11,6 +11,7 @@ let
 
                     # Examples
                     warp-wamp-router = haskellPackages.callPackage ./examples/warp-wamp-router {};
+                    poloniex = haskellPackages.callPackage ./examples/poloniex {};
                 };
             };
         };
@@ -25,4 +26,5 @@ in {
 
     # Examples
     warp-wamp-router = pkgs.haskellPackages.warp-wamp-router;
+    poloniex = pkgs.haskellPackages.poloniex;
 }
