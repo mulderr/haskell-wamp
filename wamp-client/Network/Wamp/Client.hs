@@ -25,7 +25,7 @@ where
 
 import           Control.Concurrent.MVar
 import           Control.Exception       (throwIO)
-import           Data.Aeson              hiding (Result)
+import           Data.Aeson              hiding (Result, Options)
 import qualified Data.HashMap.Strict     as HM
 import qualified Network.WebSockets      as WS
 import qualified System.Random           as R

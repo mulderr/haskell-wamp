@@ -41,7 +41,7 @@ module Network.Wamp.Types
 where
 
 import           Data.Int              (Int64)
-import           Data.Aeson
+import           Data.Aeson hiding(Options)
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Vector           as V

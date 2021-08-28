@@ -1,6 +1,10 @@
--- This file has been generated from package.yaml by hpack version 0.15.0.
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: 3d737121839e9e0052022f5f3770315e82fb55c9eb4fe883d6a323269087823c
 
 name:           warp-wamp-router
 version:        0.1.0.0
@@ -11,13 +15,13 @@ maintainer:     kazulakm@gmail.com
 license:        MIT
 license-file:   LICENSE
 build-type:     Simple
-cabal-version:  >= 1.10
-
 extra-source-files:
     README.md
 
 executable warp-wamp-router
   main-is: Main.hs
+  other-modules:
+      Paths_warp_wamp_router
   default-extensions: OverloadedStrings
   build-depends:
       aeson

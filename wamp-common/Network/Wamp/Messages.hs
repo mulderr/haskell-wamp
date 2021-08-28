@@ -18,7 +18,7 @@ module Network.Wamp.Messages
 where
 
 import           Control.Applicative
-import           Data.Aeson            hiding (Error)
+import           Data.Aeson            hiding (Error, Options)
 import           Data.Aeson.Types      hiding (Error, Options)
 import qualified Data.Vector           as V
 
