@@ -92,44 +92,35 @@ instance Indexable Subscription where
 
 
 -- | Current subscriptions known to a @Subscriber@
-newtype SubscriptionStore = SubscriptionStore (MVar (IxSet Subscription))
+type SubscriptionStore = TicketStore Subscription
 
+instance TicketClass Subscription where
+  type TicketId Subscription = SubId
+  type TicketUri Subscription = TopicUri
 
 -- | Create a new 'SubscriptionStore'
 mkSubscriptionStore :: IO SubscriptionStore
-mkSubscriptionStore = do
-  m <- newMVar empty
-  return $ SubscriptionStore m
+mkSubscriptionStore = mkTicketStore
 
 -- | Insert a 'Subscription' into a 'SubscriptionStore'
 insertSubscription :: SubscriptionStore -> Subscription -> IO ()
-insertSubscription (SubscriptionStore m) sub = do
-  store <- takeMVar m
-  putMVar m $ Ix.insert sub store
+insertSubscription = insertTicket
 
 -- | Lookup a  'Subscription' by 'Network.Wamp.Types.SubId'
 lookupSubscription :: SubscriptionStore -> SubId -> IO (Maybe Subscription)
-lookupSubscription (SubscriptionStore m) subId = do
-  store <- readMVar m
-  return $ getOne $ store @= subId
+lookupSubscription = lookupTicket
 
 -- | Lookup a  'Subscription' by 'Network.Wamp.Types.TopicUri'
 lookupSubscriptionByTopicUri :: SubscriptionStore -> TopicUri -> IO [Subscription]
-lookupSubscriptionByTopicUri (SubscriptionStore m) topicUri = do
-  store <- readMVar m
-  return $ toList $ store @= topicUri
+lookupSubscriptionByTopicUri = lookupTicketByUri
 
 -- | Delete a  'Subscription' by 'Network.Wamp.Types.SubId'
 deleteSubscription :: SubscriptionStore -> SubId -> IO ()
-deleteSubscription (SubscriptionStore m) subId = do
-  store <- takeMVar m
-  putMVar m $ deleteIx subId store
+deleteSubscription = deleteTicket
    
 -- | Return current registration count
 countSubscription :: SubscriptionStore -> IO Int
-countSubscription (SubscriptionStore m) = do
-  store <- readMVar m
-  return $ size store
+countSubscription = countTicket
 
 
 data Store a = Store (MVar (IxSet a))
@@ -261,10 +252,10 @@ instance Indexable CallRequest where
 
 -- | Register request
 data RegisterRequest = RegisterRequest
-  { registerRequestId       :: ReqId
+  { registerPromise         :: Result Registration
+  , registerRequestId       :: ReqId
   , registerRequestProcUri  :: ProcedureUri 
-  --, registerRequestEndpoint :: Endpoint 
-  , registerRequestOptions  :: Options
+  , registerRequestEndpoint :: Endpoint 
   }
   deriving (Typeable)
 
@@ -275,7 +266,7 @@ instance Ord RegisterRequest where
   compare x y = compare (registerRequestId x) (registerRequestId y)
 
 instance Show RegisterRequest where
-  show (RegisterRequest reqId _ _) = "RegisterRequest " ++ show reqId
+  show r = "RegisterRequest " ++ (show $ registerRequestId r)
 
 instance Indexable RegisterRequest where
   empty = ixSet
@@ -284,8 +275,9 @@ instance Indexable RegisterRequest where
 
 -- | Unregister request
 data UnregisterRequest = UnregisterRequest
-  { unregisterRequestId       :: ReqId
-  , unregisterRequestSubId    :: SubId
+  { unregisterPromise         :: Result Bool
+  , unregisterRequestId       :: ReqId
+  , unregisterRequestSubId    :: RegId
   }
   deriving (Typeable)
 
@@ -296,7 +288,7 @@ instance Ord UnregisterRequest where
   compare x y = compare (unregisterRequestId x) (unregisterRequestId y)
 
 instance Show UnregisterRequest where
-  show (UnregisterRequest reqId _) = "UnregisterRequest " ++ show reqId
+  show x = "UnregisterRequest " ++ (show $ unregisterRequestId x)
 
 instance Indexable UnregisterRequest where
   empty = ixSet
@@ -321,7 +313,7 @@ instance Ord Registration where
   compare x y = compare (registrationId x) (registrationId y)
 
 instance Show Registration where
-  show (Registration subId topicUri _ _) = "Registration " ++ show subId ++ " " ++ show topicUri
+  show (Registration regId procedureUri _ _) = "Registration " ++ show regId ++ " " ++ show procedureUri
 
 instance Indexable Registration where
   empty = ixSet
@@ -329,41 +321,77 @@ instance Indexable Registration where
     , ixFun $ \s -> [registrationProcedureUri s]
     ]
 
-newtype RegistrationStore = RegistrationStore (MVar (IxSet Registration))
+type RegistrationStore = TicketStore Registration
+
+instance TicketClass Registration where
+  type TicketId Registration = RegId
+  type TicketUri Registration = ProcedureUri
 
 -- | Create a new 'RegistrationStore'
 mkRegistrationStore :: IO RegistrationStore
-mkRegistrationStore = do
-  m <- newMVar empty
-  return $ RegistrationStore m
+mkRegistrationStore = mkTicketStore
 
 -- | Insert a 'Registration' into a 'RegistrationStore'
 insertRegistration :: RegistrationStore -> Registration -> IO ()
-insertRegistration (RegistrationStore m) reg = do
-  store <- takeMVar m
-  putMVar m $ Ix.insert reg store
+insertRegistration = insertTicket
 
 -- | Lookup a  'Registration' by 'Network.Wamp.Types.RegId'
 lookupRegistration :: RegistrationStore -> RegId -> IO (Maybe Registration)
-lookupRegistration (RegistrationStore m) regId = do
-  store <- readMVar m
-  return $ getOne $ store @= regId
+lookupRegistration = lookupTicket
 
 -- | Lookup a  'Registration' by 'Network.Wamp.Types.ProcedureUri'
 lookupRegistrationByProcedureUri :: RegistrationStore -> ProcedureUri -> IO [Registration]
-lookupRegistrationByProcedureUri (RegistrationStore m) procedureUri = do
-  store <- readMVar m
-  return $ toList $ store @= procedureUri
+lookupRegistrationByProcedureUri = lookupTicketByUri
 
 -- | Delete a  'Registration' by 'Network.Wamp.Types.RegId'
 deleteRegistration :: RegistrationStore -> RegId -> IO ()
-deleteRegistration (RegistrationStore m) subId = do
-  store <- takeMVar m
-  putMVar m $ deleteIx subId store
+deleteRegistration = deleteTicket
    
 -- | Return current registration count
 countRegistration :: RegistrationStore -> IO Int
-countRegistration (RegistrationStore m) = do
+countRegistration = countTicket
+
+-- common implementation for subscriptions and registrations:
+-- we get a ticket from router. ticket has an id, and it also has an uri.
+
+class (Eq a, Ord a, Indexable a, Typeable a, Typeable (TicketId a), Typeable (TicketUri a)) =>
+      TicketClass a where
+  type TicketId a
+  type TicketUri a
+
+data TicketStore a = TicketStore (MVar (IxSet a))
+
+mkTicketStore :: (TicketClass a) => IO (TicketStore a)
+mkTicketStore = do
+  m <- newMVar empty
+  return $ TicketStore m
+
+-- | Insert a 'Ticket' into a 'TicketStore'
+insertTicket :: (TicketClass a) => TicketStore a -> a -> IO ()
+insertTicket (TicketStore m) reg = do
+  store <- takeMVar m
+  putMVar m $ Ix.insert reg store
+
+-- | Lookup a  'Ticket' by 'Network.Wamp.Types.RegId'
+lookupTicket :: (TicketClass a) => TicketStore a -> TicketId a -> IO (Maybe a)
+lookupTicket (TicketStore m) regId = do
+  store <- readMVar m
+  return $ getOne $ store @= regId
+
+-- | Lookup a  'Ticket' by 'Network.Wamp.Types.ProcedureUri'
+lookupTicketByUri :: (TicketClass a) => TicketStore a -> TicketUri a -> IO [a]
+lookupTicketByUri (TicketStore m) uri = do
+  store <- readMVar m
+  return $ toList $ store @= uri
+
+-- | Delete a  'Ticket' by 'Network.Wamp.Types.RegId'
+deleteTicket :: (TicketClass a) => TicketStore a -> TicketId a -> IO ()
+deleteTicket (TicketStore m) ticketId = do
+  store <- takeMVar m
+  putMVar m $ deleteIx ticketId store
+   
+-- | Return current registration count
+countTicket :: (TicketClass a) => TicketStore a -> IO Int
+countTicket (TicketStore m) = do
   store <- readMVar m
   return $ size store
-
