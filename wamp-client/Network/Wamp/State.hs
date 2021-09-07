@@ -231,8 +231,8 @@ instance Indexable UnsubscribeRequest where
 
 -- | Call request
 data CallRequest = CallRequest
-  { callRequestId       :: ReqId
-  , callRequestSubId    :: SubId
+  { callPromise         :: Result CallResult,
+    callRequestId       :: ReqId
   }
   deriving (Typeable)
 
@@ -243,7 +243,7 @@ instance Ord CallRequest where
   compare x y = compare (callRequestId x) (callRequestId y)
 
 instance Show CallRequest where
-  show (CallRequest reqId _) = "CallRequest " ++ show reqId
+  show r = "CallRequest " ++ (show $ callRequestId r)
 
 instance Indexable CallRequest where
   empty = ixSet

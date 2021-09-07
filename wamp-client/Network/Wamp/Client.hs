@@ -20,6 +20,9 @@ module Network.Wamp.Client
   , subscribe
   , unsubscribe
   , publish
+  , register
+  , unregister
+  , call
   )
 where
 
@@ -41,9 +44,6 @@ import           Network.Wamp.State
 
 type WampApp      = Session -> IO ()
 
---type CallResult   = (Arguments, ArgumentsKw)
---type Endpoint     = Arguments -> ArgumentsKw -> Details -> IO CallResult
-
 
 -- | Current state of a client session
 data Session = Session
@@ -51,15 +51,14 @@ data Session = Session
   , sessionConnection          :: Connection
 
   , sessionSubscriptions       :: SubscriptionStore
-  --, sessionRegistrations      :: RegistrationStore
-  --, sessionInvocations        :: InvocationStore
+  , sessionRegistrations       :: RegistrationStore
 
   , sessionPublishRequests     :: Store PublishRequest
   , sessionSubscribeRequests   :: Store SubscribeRequest
   , sessionUnsubscribeRequests :: Store UnsubscribeRequest
   , sessionCallRequests        :: Store CallRequest
   , sessionRegisterRequests    :: Store RegisterRequest
-  , sessionUnregisterRequests  :: Store RegisterRequest
+  , sessionUnregisterRequests  :: Store UnregisterRequest
 
   , sessionGenId               :: IO ID
   }
@@ -68,8 +67,7 @@ data Session = Session
 mkSession :: Connection -> SessId -> IO Session
 mkSession sessionConnection sessionId = do
   sessionSubscriptions <- mkSubscriptionStore
-  --sessionRegistrations <- mkRegistrationStore
-  --sessionInvocations <- mkInvocationStore
+  sessionRegistrations <- mkRegistrationStore
 
   sessionPublishRequests      <- mkStore
   sessionSubscribeRequests    <- mkStore
@@ -81,15 +79,6 @@ mkSession sessionConnection sessionId = do
   let sessionGenId = genGlobalId
 
   return $ Session {..}
-
-{-
-data Registration = Registration
-  { registrationId           :: RegId
-  , registrationProcedureUri :: ProcedureUri
-  , registrationEndpoint     :: Endpoint
-  , registrationOptions      :: Options
-  }
--}
 
 runClientWebSocket
   :: Bool
@@ -155,16 +144,32 @@ publish session topicUri args kwArgs opts = do
   sendMessage (sessionConnection session) $ Publish reqId opts topicUri args kwArgs
   newMVar $ Right ()
 
-{-
 register :: Session -> ProcedureUri -> Endpoint -> Options -> IO (Result Registration)
-register session procedureUri endpoint opts = error "unimplemented"
+register session procedureUri endpoint opts = do
+  reqId <- sessionGenId session >>= return . ReqId
+  m <- newEmptyMVar
+  insert (sessionRegisterRequests session) $ RegisterRequest m reqId procedureUri endpoint
+  sendMessage (sessionConnection session) $ Register reqId opts procedureUri
+  return m
+
 
 unregister :: Session -> Registration -> IO (Result Bool)
-unregister session reg = error "unimplemented"
+unregister session reg = do
+  let regId = registrationId reg
+  reqId <- sessionGenId session >>= return . ReqId
+  m <- newEmptyMVar
+  insert (sessionUnregisterRequests session) $ UnregisterRequest m reqId regId
+  sendMessage (sessionConnection session) $ Unregister reqId regId
+  return m
 
 call :: Session -> ProcedureUri -> Arguments -> ArgumentsKw -> Options -> IO (Result CallResult)
-call session procedureUri args kwArgs opts = error "unimplemented"
--}
+call session procedureUri args kwArgs opts = do
+  reqId <- sessionGenId session >>= return . ReqId
+  m <- newEmptyMVar
+  insert (sessionCallRequests session) $ CallRequest m reqId
+  sendMessage (sessionConnection session) $ Call reqId opts procedureUri args kwArgs
+  return m
+
 
 genGlobalId :: IO ID
 genGlobalId = R.randomRIO (0, 2^(53 :: Int))
