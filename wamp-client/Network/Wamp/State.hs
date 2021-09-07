@@ -1,5 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- |
 -- Module      : Network.Wamp.State
@@ -16,6 +18,11 @@ module Network.Wamp.State
   , Handler
   , Result
 
+  , Registration(..)
+  , RegistrationStore
+  , Endpoint
+  , CallResult
+
   , Store (..)
   , Storeable (..)
   , PublishRequest (..)
@@ -31,6 +38,14 @@ module Network.Wamp.State
   , lookupSubscriptionByTopicUri
   , deleteSubscription
   , countSubscription
+
+  , mkRegistrationStore
+  , insertRegistration
+  , lookupRegistration
+  , lookupRegistrationByProcedureUri
+  , deleteRegistration
+  , countRegistration
+
   )
 where
 
@@ -287,3 +302,68 @@ instance Indexable UnregisterRequest where
   empty = ixSet
     [ ixFun $ \s -> [unregisterRequestId s]
     ]
+
+type CallResult   = (Arguments, ArgumentsKw)
+type Endpoint     = Arguments -> ArgumentsKw -> Details -> IO CallResult
+
+data Registration = Registration
+  { registrationId            :: RegId
+  , registrationProcedureUri  :: ProcedureUri
+  , registrationEndpoint      :: Endpoint
+  , registrationOptions       :: Options
+  }
+  deriving (Typeable)
+
+instance Eq Registration where
+  x == y = (registrationId x) == (registrationId y)
+
+instance Ord Registration where
+  compare x y = compare (registrationId x) (registrationId y)
+
+instance Show Registration where
+  show (Registration subId topicUri _ _) = "Registration " ++ show subId ++ " " ++ show topicUri
+
+instance Indexable Registration where
+  empty = ixSet
+    [ ixFun $ \s -> [registrationId s]
+    , ixFun $ \s -> [registrationProcedureUri s]
+    ]
+
+newtype RegistrationStore = RegistrationStore (MVar (IxSet Registration))
+
+-- | Create a new 'RegistrationStore'
+mkRegistrationStore :: IO RegistrationStore
+mkRegistrationStore = do
+  m <- newMVar empty
+  return $ RegistrationStore m
+
+-- | Insert a 'Registration' into a 'RegistrationStore'
+insertRegistration :: RegistrationStore -> Registration -> IO ()
+insertRegistration (RegistrationStore m) reg = do
+  store <- takeMVar m
+  putMVar m $ Ix.insert reg store
+
+-- | Lookup a  'Registration' by 'Network.Wamp.Types.RegId'
+lookupRegistration :: RegistrationStore -> RegId -> IO (Maybe Registration)
+lookupRegistration (RegistrationStore m) regId = do
+  store <- readMVar m
+  return $ getOne $ store @= regId
+
+-- | Lookup a  'Registration' by 'Network.Wamp.Types.ProcedureUri'
+lookupRegistrationByProcedureUri :: RegistrationStore -> ProcedureUri -> IO [Registration]
+lookupRegistrationByProcedureUri (RegistrationStore m) procedureUri = do
+  store <- readMVar m
+  return $ toList $ store @= procedureUri
+
+-- | Delete a  'Registration' by 'Network.Wamp.Types.RegId'
+deleteRegistration :: RegistrationStore -> RegId -> IO ()
+deleteRegistration (RegistrationStore m) subId = do
+  store <- takeMVar m
+  putMVar m $ deleteIx subId store
+   
+-- | Return current registration count
+countRegistration :: RegistrationStore -> IO Int
+countRegistration (RegistrationStore m) = do
+  store <- readMVar m
+  return $ size store
+
