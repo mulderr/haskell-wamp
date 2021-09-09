@@ -24,6 +24,7 @@ module Network.Wamp.State
   , CallResult
 
   , Store (..)
+  , TicketStore(..)
   , Storeable (..)
   , PublishRequest (..)
   , SubscribeRequest (..)
@@ -255,7 +256,8 @@ data RegisterRequest = RegisterRequest
   { registerPromise         :: Result Registration
   , registerRequestId       :: ReqId
   , registerRequestProcUri  :: ProcedureUri 
-  , registerRequestEndpoint :: Endpoint 
+  , registerRequestEndpoint :: Endpoint
+  , registerRequestOptions  :: Options
   }
   deriving (Typeable)
 

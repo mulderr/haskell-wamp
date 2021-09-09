@@ -28,10 +28,17 @@ where
 
 import           Control.Concurrent.MVar
 import           Control.Exception       (throwIO)
-import           Data.Aeson              hiding (Result, Options)
+import           Data.Aeson              hiding (Result, Options, Error)
 import qualified Data.HashMap.Strict     as HM
 import qualified Network.WebSockets      as WS
 import qualified System.Random           as R
+import qualified Data.IxSet              as Ix
+import qualified Data.Vector             as V
+import qualified Data.Text               as T
+
+import Control.Concurrent.Async(race)
+import Control.Concurrent(forkFinally)
+import Control.Monad
 
 import           Wuss
 
@@ -99,7 +106,9 @@ runClientWebSocket secure realmUri host port path app = do
                 , connectionWrite     = writeWsMessage ws
                 , connectionClose     = closeWsConnection ws
                 }
-    connect conn realmUri >>= app
+    session <- connect conn realmUri
+    app session `race` readerLoop conn session
+    return ()
     )
 
 connect :: Connection -> RealmUri -> IO Session
@@ -120,6 +129,68 @@ connect conn realmUri = do
       _ <- throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
       error "Silence! compiler."
 
+readerLoop :: Connection -> Session -> IO ()
+readerLoop conn session = go
+  where go = do
+          msg <- receiveMessage conn
+          case msg of
+            Abort {} -> return ()
+            Goodbye {} -> return ()
+            Error {} -> return ()
+            Published {} -> return ()
+            Subscribed {} -> return ()
+            Unsubscribed {} -> return ()
+            Event {} -> return ()
+            Result {} -> return ()
+            
+            Registered reqId regId -> do
+              let Store mvreq = sessionRegisterRequests session
+                  TicketStore mvreg = sessionRegistrations session
+              rrs <- takeMVar mvreq
+              case Ix.getOne $ rrs Ix.@= reqId of
+                Nothing -> putMVar mvreq rrs
+                Just rr -> do
+                  putMVar mvreq $! Ix.deleteIx reqId rrs
+                  let reg = Registration { registrationId = regId
+                                         , registrationProcedureUri = registerRequestProcUri rr
+                                         , registrationEndpoint = registerRequestEndpoint rr
+                                         , registrationOptions = registerRequestOptions rr }
+                  modifyMVar_ mvreg $ return . Ix.insert reg
+                  putMVar (registerPromise rr) $ Right reg
+                  
+            Unregistered reqId -> do
+              let Store mvreq = sessionUnregisterRequests session
+                  TicketStore mvreg = sessionRegistrations session
+              urs <- takeMVar mvreq
+              case Ix.getOne $ urs Ix.@= reqId of
+                Nothing -> putMVar mvreq urs
+                Just ur -> do
+                  putMVar mvreq $! Ix.deleteIx reqId urs
+                  let regId = unregisterRequestSubId ur
+                      promise = unregisterPromise ur
+                  modifyMVar_ mvreg $ return . Ix.deleteIx regId
+                  putMVar promise $ Right True
+              
+            Invocation reqId regId details args argskw -> do
+              let TicketStore mvreg = sessionRegistrations session
+              regs <- readMVar mvreg
+              case Ix.getOne $ regs Ix.@= regId of
+                Nothing -> sendMessage conn $
+                           defaultError MsgTypeInvocation reqId "wamp.error.no_such_registration"
+                Just reg -> do
+                  void $ forkFinally (registrationEndpoint reg args argskw details) $
+                    \eres -> case eres of
+                               Left x ->
+                                 sendMessage conn $
+                                 Error MsgTypeInvocation reqId (Details HM.empty)
+                                 "wamp.error.exception"
+                                 (Arguments $ V.singleton $ String $ T.pack $ show x)
+                                 (ArgumentsKw HM.empty)
+                               Right (res,reskw) ->
+                                 sendMessage conn $ Yield reqId (Options HM.empty) res reskw
+              
+            _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
+          go
 
 subscribe :: Session -> TopicUri -> Options -> Handler -> IO (Result Subscription)
 subscribe session topicUri opts handler = do
@@ -148,7 +219,7 @@ register :: Session -> ProcedureUri -> Endpoint -> Options -> IO (Result Registr
 register session procedureUri endpoint opts = do
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
-  insert (sessionRegisterRequests session) $ RegisterRequest m reqId procedureUri endpoint
+  insert (sessionRegisterRequests session) $ RegisterRequest m reqId procedureUri endpoint opts
   sendMessage (sessionConnection session) $ Register reqId opts procedureUri
   return m
 
