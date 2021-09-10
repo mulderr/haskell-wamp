@@ -1,7 +1,11 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 
 -- |
 -- Module      : Network.Wamp.State
@@ -26,6 +30,7 @@ module Network.Wamp.State
   , Store (..)
   , TicketStore(..)
   , Storeable (..)
+  , HasPromise(..)
   , PublishRequest (..)
   , SubscribeRequest (..)
   , UnsubscribeRequest (..)
@@ -166,6 +171,8 @@ instance Storeable CallRequest
 instance Storeable RegisterRequest
 instance Storeable UnregisterRequest
 
+class HasPromise a b | a -> b where
+  getPromise :: a -> Result b
 
 -- | Publish request
 data PublishRequest = PublishRequest
@@ -188,6 +195,8 @@ instance Indexable PublishRequest where
     [ ixFun $ \s -> [publishRequestId s]
     ]
 
+instance HasPromise PublishRequest PubId where
+  getPromise = publishPromise
 
 -- | Subscribe request
 data SubscribeRequest = SubscribeRequest
@@ -213,6 +222,9 @@ instance Indexable SubscribeRequest where
     [ ixFun $ \s -> [subscribeRequestId s]
     ]
 
+instance HasPromise SubscribeRequest Subscription where
+  getPromise = subscribePromise
+
 
 -- | Unsubscribe request
 data UnsubscribeRequest = UnsubscribeRequest
@@ -236,6 +248,9 @@ instance Indexable UnsubscribeRequest where
     [ ixFun $ \s -> [unsubscribeRequestId s]
     ]
 
+instance HasPromise UnsubscribeRequest Bool where
+  getPromise = unsubscribePromise
+
 
 -- | Call request
 data CallRequest = CallRequest
@@ -257,6 +272,9 @@ instance Indexable CallRequest where
   empty = ixSet
     [ ixFun $ \s -> [callRequestId s]
     ]
+
+instance HasPromise CallRequest CallResult where
+  getPromise = callPromise
 
 -- | Register request
 data RegisterRequest = RegisterRequest
@@ -283,6 +301,9 @@ instance Indexable RegisterRequest where
     [ ixFun $ \s -> [registerRequestId s]
     ]
 
+instance HasPromise RegisterRequest Registration where
+  getPromise = registerPromise
+
 -- | Unregister request
 data UnregisterRequest = UnregisterRequest
   { unregisterPromise         :: Result Bool
@@ -304,6 +325,9 @@ instance Indexable UnregisterRequest where
   empty = ixSet
     [ ixFun $ \s -> [unregisterRequestId s]
     ]
+
+instance HasPromise UnregisterRequest Bool where
+  getPromise = unregisterPromise
 
 type CallResult   = (Arguments, ArgumentsKw)
 type Endpoint     = Arguments -> ArgumentsKw -> Details -> IO CallResult

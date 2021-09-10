@@ -28,7 +28,7 @@ module Network.Wamp.Client
 where
 
 import           Control.Concurrent.MVar
-import           Control.Exception       (throwIO, try, SomeException)
+import           Control.Exception       (throwIO, try, SomeException(..))
 import           Data.Aeson              hiding (Result, Options, Error)
 import qualified Data.HashMap.Strict     as HM
 import qualified Network.WebSockets      as WS
@@ -37,7 +37,7 @@ import qualified Data.IxSet              as Ix
 import qualified Data.Vector             as V
 import qualified Data.Text               as T
 
-import Control.Concurrent.Async(race)
+import Control.Concurrent.Async(race, forConcurrently_)
 import Control.Concurrent(forkFinally)
 import Control.Monad
 
@@ -108,7 +108,7 @@ runClientWebSocket secure realmUri host port path app = do
                 , connectionClose     = closeWsConnection ws
                 }
     session <- connect conn realmUri
-    app session `race` readerLoop conn session
+    app session `race` readerLoop session
     return ()
     )
 
@@ -130,21 +130,27 @@ connect conn realmUri = do
       _ <- throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
       error "Silence! compiler."
 
-readerLoop :: Connection -> Session -> IO ()
-readerLoop conn session = go
-  where go = do
+readerLoop :: Session -> IO ()
+readerLoop session = go
+  where conn = sessionConnection session
+        go = do
           msg <- receiveMessage conn
           case msg of
-            Abort {} -> return ()
-            Goodbye {} -> return ()
+            Abort {} -> finalizeSession session
+
+            Goodbye {} -> do
+              finalizeSession session
+              sendMessage conn $ Goodbye (Details HM.empty) "wamp.close.goodbye_and_out"
+
             Error {} -> return ()
-            
+
             Published reqId pubId -> do
               mpr <- extract (sessionPublishRequests session) reqId
               case mpr of
                 Nothing -> return ()
                 Just pr -> putMVar (publishPromise pr) $ Right pubId
-            
+              go
+
             Subscribed reqId subId -> do
               msr <- extract (sessionSubscribeRequests session) reqId
               case msr of
@@ -158,6 +164,7 @@ readerLoop conn session = go
                                          }
                   modifyMVar_ mvsub $ return . Ix.insert sub
                   putMVar (subscribePromise sr) $ Right sub
+              go
 
             Unsubscribed reqId -> do
               mur <- extract (sessionUnsubscribeRequests session) reqId
@@ -167,6 +174,7 @@ readerLoop conn session = go
                   let TicketStore mvsub = sessionSubscriptions session
                   modifyMVar_ mvsub $ return . Ix.deleteIx (unsubscribeRequestSubId ur)
                   putMVar (unsubscribePromise ur) $ Right True
+              go
 
             Event subId pubId details args argskw -> do
               let TicketStore mvsub = sessionSubscriptions session
@@ -174,12 +182,14 @@ readerLoop conn session = go
               case Ix.getOne $ subs Ix.@= subId of
                 Nothing -> return ()
                 Just sub -> subscriptionHandler sub args argskw details
+              go
 
             Result reqId details args argskw -> do
               mreq <- extract (sessionCallRequests session) reqId
               case mreq of
                 Nothing -> return ()
                 Just req -> putMVar (callPromise req) $ Right (args, argskw)
+              go
 
             Registered reqId regId -> do
               mrr <- extract (sessionRegisterRequests session) reqId
@@ -194,6 +204,7 @@ readerLoop conn session = go
                                          , registrationOptions = registerRequestOptions rr }
                   modifyMVar_ mvreg $ return . Ix.insert reg
                   putMVar (registerPromise rr) $ Right reg
+              go
 
             Unregistered reqId -> do
               mur <- extract (sessionUnregisterRequests session) reqId
@@ -205,6 +216,7 @@ readerLoop conn session = go
                       promise = unregisterPromise ur
                   modifyMVar_ mvreg $ return . Ix.deleteIx regId
                   putMVar promise $ Right True
+              go
 
             Invocation reqId regId details args argskw -> do
               let TicketStore mvreg = sessionRegistrations session
@@ -227,9 +239,9 @@ readerLoop conn session = go
                   in if registrationHandleAsync reg
                      then void $ forkFinally call complete
                      else try call >>= complete
+              go
 
             _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
-          go
 
 subscribe :: Session -> TopicUri -> Options -> Handler -> IO (Result Subscription)
 subscribe session topicUri opts handler = do
@@ -292,6 +304,23 @@ call session procedureUri args kwArgs opts = do
   sendMessage (sessionConnection session) $ Call reqId opts procedureUri args kwArgs
   return m
 
+completeSessionClosed :: Result a -> IO ()
+completeSessionClosed r = tryTakeMVar r >> putMVar r (Left $ SomeException $ SessionClosed)
 
+finalizeOutstanding :: (Storeable a, HasPromise a b) => Store a -> IO ()
+finalizeOutstanding stor = do
+  x <- let Store s = stor in takeMVar s
+  forConcurrently_ (Ix.toList x) $ completeSessionClosed . getPromise
+
+finalizeSession :: Session -> IO ()
+finalizeSession session =
+  forConcurrently_ [finalizeOutstanding . sessionPublishRequests
+                   ,finalizeOutstanding . sessionSubscribeRequests
+                   ,finalizeOutstanding . sessionUnsubscribeRequests
+                   ,finalizeOutstanding . sessionCallRequests
+                   ,finalizeOutstanding . sessionRegisterRequests
+                   ,finalizeOutstanding . sessionUnregisterRequests
+                   ] ($ session)
+  
 genGlobalId :: IO ID
 genGlobalId = R.randomRIO (0, 2^(53 :: Int))
