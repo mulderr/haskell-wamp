@@ -24,7 +24,9 @@ library
     , base
     , ixset
     , random
+    , text
     , unordered-containers
+    , vector
     , wamp-common
     , websockets
     , wuss

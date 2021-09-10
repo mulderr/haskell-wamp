@@ -145,7 +145,13 @@ class (Eq s, Ord s, Indexable s, Typeable s) => Storeable s where
   delete :: Store s -> ReqId -> IO ()
   delete (Store m) reqId = do
     store <- takeMVar m
-    putMVar m $ deleteIx reqId store
+    putMVar m $! deleteIx reqId store
+
+  extract :: Store s -> ReqId -> IO (Maybe s)
+  extract (Store m) reqId = do
+    store <- takeMVar m
+    putMVar m $! deleteIx reqId store
+    return $ getOne $ store @= reqId
 
   count :: Store s -> IO Int
   count (Store m) = do
@@ -163,7 +169,7 @@ instance Storeable UnregisterRequest
 
 -- | Publish request
 data PublishRequest = PublishRequest
-  { publishPromise         :: Result ()
+  { publishPromise         :: Result PubId
   , publishRequestId       :: ReqId
   }
   deriving (Typeable)
@@ -189,6 +195,7 @@ data SubscribeRequest = SubscribeRequest
   , subscribeRequestId       :: ReqId
   , subscribeRequestTopicUri :: TopicUri
   , subscribeRequestHandler  :: Handler
+  , subscribeRequestOptions  :: Options
   }
   deriving (Typeable)
 
@@ -257,6 +264,7 @@ data RegisterRequest = RegisterRequest
   , registerRequestId       :: ReqId
   , registerRequestProcUri  :: ProcedureUri 
   , registerRequestEndpoint :: Endpoint
+  , registerRequestHandleAsync :: Bool
   , registerRequestOptions  :: Options
   }
   deriving (Typeable)
@@ -304,6 +312,7 @@ data Registration = Registration
   { registrationId            :: RegId
   , registrationProcedureUri  :: ProcedureUri
   , registrationEndpoint      :: Endpoint
+  , registrationHandleAsync   :: Bool
   , registrationOptions       :: Options
   }
   deriving (Typeable)
@@ -315,7 +324,10 @@ instance Ord Registration where
   compare x y = compare (registrationId x) (registrationId y)
 
 instance Show Registration where
-  show (Registration regId procedureUri _ _) = "Registration " ++ show regId ++ " " ++ show procedureUri
+  show r = mconcat ["Registration "
+                   ,show $ registrationId r
+                   ," "
+                   ,show $ registrationProcedureUri r]
 
 instance Indexable Registration where
   empty = ixSet

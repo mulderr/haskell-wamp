@@ -20,6 +20,7 @@ module Network.Wamp.Client
   , subscribe
   , unsubscribe
   , publish
+  , publishAck
   , register
   , unregister
   , call
@@ -27,7 +28,7 @@ module Network.Wamp.Client
 where
 
 import           Control.Concurrent.MVar
-import           Control.Exception       (throwIO)
+import           Control.Exception       (throwIO, try, SomeException)
 import           Data.Aeson              hiding (Result, Options, Error)
 import qualified Data.HashMap.Strict     as HM
 import qualified Network.WebSockets      as WS
@@ -137,58 +138,96 @@ readerLoop conn session = go
             Abort {} -> return ()
             Goodbye {} -> return ()
             Error {} -> return ()
-            Published {} -> return ()
-            Subscribed {} -> return ()
-            Unsubscribed {} -> return ()
-            Event {} -> return ()
-            Result {} -> return ()
             
+            Published reqId pubId -> do
+              mpr <- extract (sessionPublishRequests session) reqId
+              case mpr of
+                Nothing -> return ()
+                Just pr -> putMVar (publishPromise pr) $ Right pubId
+            
+            Subscribed reqId subId -> do
+              msr <- extract (sessionSubscribeRequests session) reqId
+              case msr of
+                Nothing -> return ()
+                Just sr -> do
+                  let TicketStore mvsub = sessionSubscriptions session
+                      sub = Subscription { subscriptionId = subId
+                                         , subscriptionTopicUri = subscribeRequestTopicUri sr
+                                         , subscriptionHandler = subscribeRequestHandler sr
+                                         , subscriptionOptions = subscribeRequestOptions sr
+                                         }
+                  modifyMVar_ mvsub $ return . Ix.insert sub
+                  putMVar (subscribePromise sr) $ Right sub
+
+            Unsubscribed reqId -> do
+              mur <- extract (sessionUnsubscribeRequests session) reqId
+              case mur of
+                Nothing -> return ()
+                Just ur -> do
+                  let TicketStore mvsub = sessionSubscriptions session
+                  modifyMVar_ mvsub $ return . Ix.deleteIx (unsubscribeRequestSubId ur)
+                  putMVar (unsubscribePromise ur) $ Right True
+
+            Event subId pubId details args argskw -> do
+              let TicketStore mvsub = sessionSubscriptions session
+              subs <- readMVar mvsub
+              case Ix.getOne $ subs Ix.@= subId of
+                Nothing -> return ()
+                Just sub -> subscriptionHandler sub args argskw details
+
+            Result reqId details args argskw -> do
+              mreq <- extract (sessionCallRequests session) reqId
+              case mreq of
+                Nothing -> return ()
+                Just req -> putMVar (callPromise req) $ Right (args, argskw)
+
             Registered reqId regId -> do
-              let Store mvreq = sessionRegisterRequests session
-                  TicketStore mvreg = sessionRegistrations session
-              rrs <- takeMVar mvreq
-              case Ix.getOne $ rrs Ix.@= reqId of
-                Nothing -> putMVar mvreq rrs
+              mrr <- extract (sessionRegisterRequests session) reqId
+              case mrr of
+                Nothing -> return ()
                 Just rr -> do
-                  putMVar mvreq $! Ix.deleteIx reqId rrs
-                  let reg = Registration { registrationId = regId
+                  let TicketStore mvreg = sessionRegistrations session
+                      reg = Registration { registrationId = regId
                                          , registrationProcedureUri = registerRequestProcUri rr
                                          , registrationEndpoint = registerRequestEndpoint rr
+                                         , registrationHandleAsync = registerRequestHandleAsync rr
                                          , registrationOptions = registerRequestOptions rr }
                   modifyMVar_ mvreg $ return . Ix.insert reg
                   putMVar (registerPromise rr) $ Right reg
-                  
+
             Unregistered reqId -> do
-              let Store mvreq = sessionUnregisterRequests session
-                  TicketStore mvreg = sessionRegistrations session
-              urs <- takeMVar mvreq
-              case Ix.getOne $ urs Ix.@= reqId of
-                Nothing -> putMVar mvreq urs
+              mur <- extract (sessionUnregisterRequests session) reqId
+              case mur of
+                Nothing -> return ()
                 Just ur -> do
-                  putMVar mvreq $! Ix.deleteIx reqId urs
-                  let regId = unregisterRequestSubId ur
+                  let TicketStore mvreg = sessionRegistrations session
+                      regId = unregisterRequestSubId ur
                       promise = unregisterPromise ur
                   modifyMVar_ mvreg $ return . Ix.deleteIx regId
                   putMVar promise $ Right True
-              
+
             Invocation reqId regId details args argskw -> do
               let TicketStore mvreg = sessionRegistrations session
               regs <- readMVar mvreg
               case Ix.getOne $ regs Ix.@= regId of
                 Nothing -> sendMessage conn $
                            defaultError MsgTypeInvocation reqId "wamp.error.no_such_registration"
-                Just reg -> do
-                  void $ forkFinally (registrationEndpoint reg args argskw details) $
-                    \eres -> case eres of
-                               Left x ->
-                                 sendMessage conn $
-                                 Error MsgTypeInvocation reqId (Details HM.empty)
-                                 "wamp.error.exception"
-                                 (Arguments $ V.singleton $ String $ T.pack $ show x)
-                                 (ArgumentsKw HM.empty)
-                               Right (res,reskw) ->
-                                 sendMessage conn $ Yield reqId (Options HM.empty) res reskw
-              
+                Just reg ->
+                  let call = registrationEndpoint reg args argskw details
+                      complete eres =
+                        case eres of
+                          Left x ->
+                            sendMessage conn $
+                            Error MsgTypeInvocation reqId (Details HM.empty)
+                            "wamp.error.exception"
+                            (Arguments $ V.singleton $ String $ T.pack $ show (x::SomeException))
+                            (ArgumentsKw HM.empty)
+                          Right (res,reskw) ->
+                            sendMessage conn $ Yield reqId (Options HM.empty) res reskw
+                  in if registrationHandleAsync reg
+                     then void $ forkFinally call complete
+                     else try call >>= complete
+
             _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
           go
 
@@ -196,7 +235,7 @@ subscribe :: Session -> TopicUri -> Options -> Handler -> IO (Result Subscriptio
 subscribe session topicUri opts handler = do
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
-  insert (sessionSubscribeRequests session) $ SubscribeRequest m reqId topicUri handler
+  insert (sessionSubscribeRequests session) $ SubscribeRequest m reqId topicUri handler opts
   sendMessage (sessionConnection session) $ Subscribe reqId opts topicUri
   return m
 
@@ -209,17 +248,29 @@ unsubscribe session sub = do
   sendMessage (sessionConnection session) $ Unsubscribe reqId subId
   return m
 
-publish :: Session -> TopicUri -> Arguments -> ArgumentsKw -> Options -> IO (Result ())
+publishAck :: Session -> TopicUri -> Arguments -> ArgumentsKw -> Options -> IO (Result PubId)
+publishAck session topicUri args kwArgs (Options optionsDict) = do
+  reqId <- sessionGenId session >>= return . ReqId
+  res <- newEmptyMVar
+  let opts = Options $ HM.insert "acknowledge" (Bool True) optionsDict
+      pub = Publish reqId opts topicUri args kwArgs
+      pubrq = PublishRequest res reqId
+  insert (sessionPublishRequests session) pubrq
+  sendMessage (sessionConnection session) pub
+  return res
+
+publish :: Session -> TopicUri -> Arguments -> ArgumentsKw -> Options -> IO ()
 publish session topicUri args kwArgs opts = do
   reqId <- sessionGenId session >>= return . ReqId
-  sendMessage (sessionConnection session) $ Publish reqId opts topicUri args kwArgs
-  newMVar $ Right ()
+  let pub = Publish reqId opts topicUri args kwArgs
+  sendMessage (sessionConnection session) pub
 
-register :: Session -> ProcedureUri -> Endpoint -> Options -> IO (Result Registration)
-register session procedureUri endpoint opts = do
+register :: Session -> ProcedureUri -> Endpoint -> Bool -> Options -> IO (Result Registration)
+register session procedureUri endpoint handleAsync opts = do
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
-  insert (sessionRegisterRequests session) $ RegisterRequest m reqId procedureUri endpoint opts
+  insert (sessionRegisterRequests session) $
+    RegisterRequest m reqId procedureUri endpoint handleAsync opts
   sendMessage (sessionConnection session) $ Register reqId opts procedureUri
   return m
 
