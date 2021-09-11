@@ -28,7 +28,7 @@ module Network.Wamp.Client
 where
 
 import           Control.Concurrent.MVar
-import           Control.Exception       (throwIO, try, SomeException(..))
+import           Control.Exception       (throwIO, try, SomeException, Exception, toException)
 import           Data.Aeson              hiding (Result, Options, Error)
 import qualified Data.HashMap.Strict     as HM
 import qualified Network.WebSockets      as WS
@@ -126,9 +126,7 @@ connect conn realmUri = do
 
   case msg of
     Welcome sessId _ -> mkSession conn sessId
-    _ -> do
-      _ <- throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
-      error "Silence! compiler."
+    _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
 
 readerLoop :: Session -> IO ()
 readerLoop session = go
@@ -142,7 +140,25 @@ readerLoop session = go
               finalizeSession session
               sendMessage conn $ Goodbye (Details HM.empty) "wamp.close.goodbye_and_out"
 
-            Error {} -> return ()
+            Error msgType reqId details errorUri args argskw -> do
+              let fail' :: (Storeable a, HasPromise a b, Exception e) =>
+                           (Session -> Store a) -> e -> IO ()
+                  fail' reqStore x = do
+                    mr <- extract (reqStore session) reqId
+                    case mr of
+                      Nothing -> return ()
+                      Just r -> putMVar (getPromise r) $ Left $ toException x
+                  failFrom reqStore = fail' reqStore $ RequestFailed details errorUri
+              case msgType of
+                MsgTypeSubscribe   -> failFrom sessionSubscribeRequests
+                MsgTypeUnsubscribe -> failFrom sessionUnsubscribeRequests
+                MsgTypePublish     -> failFrom sessionPublishRequests
+                MsgTypeRegister    -> failFrom sessionRegisterRequests
+                MsgTypeUnregister  -> failFrom sessionUnregisterRequests
+                MsgTypeCall        -> fail' sessionCallRequests $
+                                      RpcError details errorUri args argskw
+                _ -> throwIO $ ProtocolException $ "Unexpected error message: " ++ show msg
+              go
 
             Published reqId pubId -> do
               mpr <- extract (sessionPublishRequests session) reqId
@@ -305,7 +321,7 @@ call session procedureUri args kwArgs opts = do
   return m
 
 completeSessionClosed :: Result a -> IO ()
-completeSessionClosed r = tryTakeMVar r >> putMVar r (Left $ SomeException $ SessionClosed)
+completeSessionClosed r = tryTakeMVar r >> putMVar r (Left $ toException $ SessionClosed)
 
 finalizeOutstanding :: (Storeable a, HasPromise a b) => Store a -> IO ()
 finalizeOutstanding stor = do

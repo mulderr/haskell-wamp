@@ -135,7 +135,11 @@ data WampException
   -- this session. There is not a single valid message we can reply with,
   -- so the session must be silently closed.
   = ProtocolException String
-
+  -- | Received ERROR as reply to our request
+  -- | (one of subscribe,unsubscribe,publish,register,unregister).
+  | RequestFailed Details ErrorUri
+  -- | An RPC has failed (error returned by dealer or callee)
+  | RpcError Details ErrorUri Arguments ArgumentsKw
   -- | Received @Goodbye@, replied @Goodbye@, session is over, time for cleanup.
   | SessionClosed
   deriving (Show, Typeable)
