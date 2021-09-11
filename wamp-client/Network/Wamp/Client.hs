@@ -14,7 +14,7 @@
 --
 module Network.Wamp.Client
   ( WampApp
-  , Session (..)
+  , Session
   , runClientWebSocket
 
   , subscribe
@@ -24,6 +24,12 @@ module Network.Wamp.Client
   , register
   , unregister
   , call
+  , trySubscribe
+  , tryUnsubscribe
+  , tryPublishAck
+  , tryRegister
+  , tryUnregister
+  , tryCall
   )
 where
 
@@ -259,16 +265,16 @@ readerLoop session = go
 
             _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
 
-subscribe :: Session -> TopicUri -> Options -> Handler -> IO (Result Subscription)
-subscribe session topicUri opts handler = do
+subscribe' :: Session -> TopicUri -> Options -> Handler -> IO (Result Subscription)
+subscribe' session topicUri opts handler = do
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
   insert (sessionSubscribeRequests session) $ SubscribeRequest m reqId topicUri handler opts
   sendMessage (sessionConnection session) $ Subscribe reqId opts topicUri
   return m
 
-unsubscribe :: Session -> Subscription -> IO (Result Bool)
-unsubscribe session sub = do
+unsubscribe' :: Session -> Subscription -> IO (Result Bool)
+unsubscribe' session sub = do
   let subId = subscriptionId sub
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
@@ -276,8 +282,8 @@ unsubscribe session sub = do
   sendMessage (sessionConnection session) $ Unsubscribe reqId subId
   return m
 
-publishAck :: Session -> TopicUri -> Arguments -> ArgumentsKw -> Options -> IO (Result PubId)
-publishAck session topicUri args kwArgs (Options optionsDict) = do
+publishAck' :: Session -> TopicUri -> Arguments -> ArgumentsKw -> Options -> IO (Result PubId)
+publishAck' session topicUri args kwArgs (Options optionsDict) = do
   reqId <- sessionGenId session >>= return . ReqId
   res <- newEmptyMVar
   let opts = Options $ HM.insert "acknowledge" (Bool True) optionsDict
@@ -293,8 +299,8 @@ publish session topicUri args kwArgs opts = do
   let pub = Publish reqId opts topicUri args kwArgs
   sendMessage (sessionConnection session) pub
 
-register :: Session -> ProcedureUri -> Endpoint -> Bool -> Options -> IO (Result Registration)
-register session procedureUri endpoint handleAsync opts = do
+register' :: Session -> ProcedureUri -> Endpoint -> Bool -> Options -> IO (Result Registration)
+register' session procedureUri endpoint handleAsync opts = do
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
   insert (sessionRegisterRequests session) $
@@ -303,8 +309,8 @@ register session procedureUri endpoint handleAsync opts = do
   return m
 
 
-unregister :: Session -> Registration -> IO (Result Bool)
-unregister session reg = do
+unregister' :: Session -> Registration -> IO (Result Bool)
+unregister' session reg = do
   let regId = registrationId reg
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
@@ -312,13 +318,35 @@ unregister session reg = do
   sendMessage (sessionConnection session) $ Unregister reqId regId
   return m
 
-call :: Session -> ProcedureUri -> Arguments -> ArgumentsKw -> Options -> IO (Result CallResult)
-call session procedureUri args kwArgs opts = do
+call' :: Session -> ProcedureUri -> Arguments -> ArgumentsKw -> Options -> IO (Result CallResult)
+call' session procedureUri args kwArgs opts = do
   reqId <- sessionGenId session >>= return . ReqId
   m <- newEmptyMVar
   insert (sessionCallRequests session) $ CallRequest m reqId
   sendMessage (sessionConnection session) $ Call reqId opts procedureUri args kwArgs
   return m
+
+waitResult :: Result a -> IO a
+waitResult resmv = do
+  eres <- takeMVar resmv
+  case eres of
+    Right res -> return res
+    Left x -> throwIO x
+
+call a b c d e       = call' a b c d e       >>= waitResult
+unregister a b       = unregister' a b       >>= waitResult
+register a b c d e   = register' a b c d e   >>= waitResult
+subscribe a b c d    = subscribe' a b c d    >>= waitResult
+unsubscribe a b      = unsubscribe' a b      >>= waitResult
+publishAck a b c d e = publishAck' a b c d e >>= waitResult
+
+tryCall a b c d e       = call' a b c d e       >>= takeMVar
+tryUnregister a b       = unregister' a b       >>= takeMVar
+tryRegister a b c d e   = register' a b c d e   >>= takeMVar
+trySubscribe a b c d    = subscribe' a b c d    >>= takeMVar
+tryUnsubscribe a b      = unsubscribe' a b      >>= takeMVar
+tryPublishAck a b c d e = publishAck' a b c d e >>= takeMVar
+
 
 completeSessionClosed :: Result a -> IO ()
 completeSessionClosed r = tryTakeMVar r >> putMVar r (Left $ toException $ SessionClosed)
