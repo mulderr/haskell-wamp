@@ -21,10 +21,13 @@ library:
     - Network.Wamp.State
   dependencies:
     - aeson
+    - async
     - base
     - ixset
     - random
+    - text
     - unordered-containers
+    - vector
     - wamp-common
     - websockets
     - wuss
