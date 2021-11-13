@@ -32,6 +32,8 @@ import Network.Wamp.Types
 data Message
   -- Session 
   = Hello         RealmUri Details
+  | Challenge     AuthMethod Extra
+  | Authenticate  Signature Extra
   | Welcome       SessId Details
   | Abort         Details ReasonUri
   | Goodbye       Details ReasonUri
@@ -63,6 +65,8 @@ instance FromJSON Message where
     msgType <- parseJSON $ V.head a
     case msgType of
       MsgTypeHello        -> Hello        <$> (a!1) <*> (a!2)
+      MsgTypeChallenge    -> Challenge    <$> (a!1) <*> (a!2)
+      MsgTypeAuthenticate -> Authenticate <$> (a!1) <*> (a!2)
       MsgTypeWelcome      -> Welcome      <$> (a!1) <*> (a!2)
       MsgTypeAbort        -> Abort        <$> (a!1) <*> (a!2)
       MsgTypeGoodbye      -> Goodbye      <$> (a!1) <*> (a!2)
@@ -92,6 +96,8 @@ instance ToJSON Message where
   toJSON m =
     case m of
       Hello         a b           -> toJsonMsg2         MsgTypeHello        a b
+      Challenge     a b           -> toJsonMsg2         MsgTypeChallenge    a b
+      Authenticate  a b           -> toJsonMsg2         MsgTypeAuthenticate a b
       Welcome       a b           -> toJsonMsg2         MsgTypeWelcome      a b
       Abort         a b           -> toJsonMsg2         MsgTypeAbort        a b
       Goodbye       a b           -> toJsonMsg2         MsgTypeGoodbye      a b

@@ -18,11 +18,17 @@ extra-source-files:
 library:
   exposed-modules:
     - Network.Wamp.Client
+  other-modules:
+    - Network.Wamp.Auth
     - Network.Wamp.State
+    - Network.Wamp.Cryptosign
   dependencies:
     - aeson
     - async
     - base
+    - base16-bytestring
+    - bytestring
+    - ed25519
     - ixset
     - random
     - text
@@ -31,3 +37,4 @@ library:
     - wamp-common
     - websockets
     - wuss
+    

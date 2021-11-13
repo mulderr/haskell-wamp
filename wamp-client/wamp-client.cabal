@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f5fa6593456ea2a8712999ea9732dff2a0af21d570eef65a15f0516af644394a
+-- hash: 61ad30c7c88f98fa18a2bec7f5a379b85e9abf36d4954c958795df1b22464ba2
 
 name:           wamp-client
 version:        0.1.0.0
@@ -21,14 +21,18 @@ extra-source-files:
 library
   exposed-modules:
       Network.Wamp.Client
-      Network.Wamp.State
   other-modules:
-      Paths_wamp_client
+      Network.Wamp.Auth
+      Network.Wamp.State
+      Network.Wamp.Cryptosign
   default-extensions: OverloadedStrings
   build-depends:
       aeson
     , async
     , base
+    , base16-bytestring
+    , bytestring
+    , ed25519
     , ixset
     , random
     , text

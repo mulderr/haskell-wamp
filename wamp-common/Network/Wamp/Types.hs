@@ -31,6 +31,9 @@ module Network.Wamp.Types
   , Details (..)
   , ArgumentsKw (..)
   , Options (..)
+  , Extra(..)
+  , AuthMethod(..)
+  , Signature(..)
 
   , Role (..)
   , MessageType (..)
@@ -132,6 +135,15 @@ newtype Details = Details Dict
 
 -- | Options dictionary.
 newtype Options = Options Dict
+  deriving (Eq, Show, Typeable, FromJSON, ToJSON)
+
+newtype Extra = Extra Dict
+  deriving (Eq, Show, Typeable, FromJSON, ToJSON)
+
+newtype Signature = Signature Text
+  deriving (Eq, Show, Typeable, FromJSON, ToJSON)
+
+newtype AuthMethod = AuthMethod Text
   deriving (Eq, Show, Typeable, FromJSON, ToJSON)
 
 

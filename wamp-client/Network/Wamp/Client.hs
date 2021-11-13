@@ -15,6 +15,7 @@
 module Network.Wamp.Client
   ( WampApp
   , Session
+  , Auth
   , runClientWebSocket
 
   , subscribe
@@ -54,6 +55,7 @@ import           Network.Wamp.Messages
 import           Network.Wamp.Types
 
 import           Network.Wamp.State
+import           Network.Wamp.Auth
 
 
 type WampApp      = Session -> IO ()
@@ -97,12 +99,13 @@ mkSession sessionConnection sessionId = do
 runClientWebSocket
   :: Bool
   -> RealmUri
+  -> Auth
   -> String
   -> Int
   -> String
   -> WampApp
   -> IO ()
-runClientWebSocket secure realmUri host port path app = do
+runClientWebSocket secure realmUri auth host port path app = do
   let headers = [("Sec-WebSocket-Protocol", "wamp.2.json")]
       runWSClientWith = if secure
         then runSecureClientWith host (fromIntegral port) path WS.defaultConnectionOptions headers
@@ -113,26 +116,39 @@ runClientWebSocket secure realmUri host port path app = do
                 , connectionWrite     = writeWsMessage ws
                 , connectionClose     = closeWsConnection ws
                 }
-    session <- connect conn realmUri
+    session <- connect conn realmUri auth
     app session `race` readerLoop session
     return ()
     )
 
-connect :: Connection -> RealmUri -> IO Session
-connect conn realmUri = do
-  sendMessage conn $ Hello realmUri (Details $ HM.fromList
-    [ "roles" .= object
-      [ "callee"     .= object []
-      , "caller"     .= object []
-      , "publisher"  .= object []
-      , "subscriber" .= object []
-      ]
-    ])
-  msg <- receiveMessage conn
+connect :: Connection -> RealmUri -> Auth -> IO Session
+connect conn realmUri auth =
+  case computeAuthExtra auth of
+    Left err -> throwIO $ ProtocolException $ "Invalid auth configuration: "++err
+    Right extra -> do
+      sendMessage conn $
+        Hello realmUri
+        (Details $ HM.fromList
+          (["roles" .= object
+             [ "callee"     .= object []
+             , "caller"     .= object []
+             , "publisher"  .= object []
+             , "subscriber" .= object []
+             ]
+           ] <> extra))
+      go
 
-  case msg of
-    Welcome sessId _ -> mkSession conn sessId
-    _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
+  where go = do
+          msg <- receiveMessage conn
+          case msg of
+            Challenge {} -> do
+              case processChallenge auth msg of
+                Left err -> throwIO $ ProtocolException $ "Could not process Challenge: " ++ err
+                Right sign -> do
+                  sendMessage conn $ Authenticate sign (Extra HM.empty)
+                  go
+            Welcome sessId _ -> mkSession conn sessId
+            _ -> throwIO $ ProtocolException $ "Unexpected message: " ++ show msg
 
 readerLoop :: Session -> IO ()
 readerLoop session = go
